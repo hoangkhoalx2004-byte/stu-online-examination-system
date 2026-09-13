@@ -14,6 +14,7 @@ export default function UsersIndex() {
     const [showModal, setShowModal] = useState(false);
     const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
     const [editingUser, setEditingUser] = useState(null);
+    const [sortRole, setSortRole] = useState(filters?.sortRole || '');
     
     // Form states
     const [formData, setFormData] = useState({
@@ -128,6 +129,16 @@ export default function UsersIndex() {
             router.delete(route('users.destroy', id), { preserveScroll: true });
         }
     };
+    const handleToggleStatus = (user) => {
+    const message =
+        user.trangthai == 1
+            ? 'Bạn có chắc chắn muốn khóa tài khoản này?'
+            : 'Bạn có chắc chắn muốn mở khóa tài khoản này?';
+
+    if (confirm(message)) {
+        router.patch(route('users.toggleStatus', user.id), {}, { preserveScroll: true });
+    }
+};
 
     if (!users || !auth) {
         return (
@@ -173,11 +184,41 @@ export default function UsersIndex() {
                             <i className="fa fa-users me-2 text-primary"></i>
                             Quản lý người dùng
                         </h3>
-                        <div className="block-options">
-                            <button className="btn btn-sm btn-primary" onClick={openAddModal}>
-                                <i className="fa fa-plus me-1"></i> Thêm người dùng
-                            </button>
-                        </div>
+                        <div className="block-options d-flex gap-2">
+                             <input
+                        type="file"
+                        id="importExcelInput"
+                        accept=".xlsx,.xls,.csv"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                            const file = e.target.files[0];
+
+                            if (!file) return;
+
+                            const formData = new FormData();
+                            formData.append('fileToUpload', file);
+
+                            router.post(route('users.import'), formData, {
+                                forceFormData: true,
+                                preserveScroll: true,
+                                onSuccess: () => {
+                                    document.getElementById('importExcelInput').value = '';
+                                }
+                           });
+                        }}
+                    />
+
+                     {/* <button
+                         className="btn btn-sm btn-success"
+                         onClick={() => document.getElementById('importExcelInput').click()}
+                     >
+                         <i className="fa fa-file-excel me-1"></i> Import Excel
+                     </button> */}
+                 
+                     <button className="btn btn-sm btn-primary" onClick={openAddModal}>
+                         <i className="fa fa-plus me-1"></i> Thêm người dùng
+                     </button>
+                     </div>
                     </div>
                     <div className="block-content bg-body-dark">
                         {/* Search and Filter */}
@@ -217,6 +258,26 @@ export default function UsersIndex() {
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
+                                <button
+    className="btn btn-alt-primary"
+    onClick={() => {
+        const newSort = sortRole === 'role' ? '' : 'role';
+        setSortRole(newSort);
+
+        router.get('/users', {
+            search: searchTerm,
+            role: selectedRole,
+            khoa: selectedKhoa,
+            sortRole: newSort
+        }, {
+            preserveState: true,
+            replace: true
+        });
+    }}
+>
+    <i className="fa fa-sort me-1"></i>
+    {sortRole === 'role' ? 'Bỏ sắp xếp' : 'Sắp xếp theo nhóm quyền'}
+</button>
                             </div>
                         </div>
                     </div>
@@ -265,15 +326,36 @@ export default function UsersIndex() {
                                                         {u.trangthai == 1 ? 'Hoạt động' : 'Bị khóa'}
                                                     </span>
                                                 </td>
+
+
                                                 <td className="text-center">
-                                                    <div className="btn-group">
-                                                        <button className="btn btn-sm btn-alt-secondary" onClick={() => openEditModal(u)} title="Sửa">
-                                                            <i className="fa fa-pencil-alt text-info"></i>
-                                                        </button>
-                                                        <button className="btn btn-sm btn-alt-secondary" onClick={() => handleDelete(u.id)} title="Xóa">
-                                                            <i className="fa fa-times text-danger"></i>
-                                                        </button>
-                                                    </div>
+                                                   <div className="btn-group">
+                                               <button
+                                                   className="btn btn-sm btn-alt-secondary"
+                                                   onClick={() => openEditModal(u)}
+                                                    title="Sửa"
+                                               >
+                                                   <i className="fa fa-pencil-alt text-info"></i>
+                                               </button>
+
+                                               {/* <button
+                                                   className="btn btn-sm btn-alt-secondary"
+                                                   onClick={() => handleToggleStatus(u)}
+                                                   title={u.trangthai == 1 ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                                               >
+                                                   <i className={`fa ${u.trangthai == 1 ? 'fa-lock text-warning' : 'fa-unlock text-success'}`}></i>
+                                               </button> */}
+
+                                               <button
+                                                   className="btn btn-sm btn-alt-secondary"
+                                                   onClick={() => handleDelete(u.id)}
+                                                   title="Xóa"
+                                                   
+                                               >
+                                                   <i className="fa fa-times text-danger"></i>
+                                               </button>
+                                               
+                                           </div>                                           
                                                 </td>
                                             </tr>
                                         ))
@@ -287,7 +369,7 @@ export default function UsersIndex() {
                     </div>
                 </div>
             </div>
-
+              
             {/* Modal Add/Edit User */}
             {showModal && (
                 <div className="modal fade show d-block" id="modal-add-user" tabIndex="-1" role="dialog" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>

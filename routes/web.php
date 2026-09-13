@@ -23,6 +23,7 @@ Route::delete('/users/api/delete/{id}', [UserController::class, 'destroy'])->nam
 Route::post('/users/api/check', [UserController::class, 'checkUser']);
 Route::post('/users/api/import', [UserController::class, 'importExcel'])->name('users.import');
 Route::get('/users/api/roles', [UserController::class, 'getRoles']);
+Route::patch('/users/api/toggle-status/{id}', [UserController::class, 'toggleStatus'])->name('users.toggleStatus');
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [

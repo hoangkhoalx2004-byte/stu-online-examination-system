@@ -8,6 +8,9 @@ use App\Models\KhoaModel;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Hash;
+
 
 class UserController extends Controller
 {
@@ -16,17 +19,16 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $query = UserModel::with(['khoa', 'nhomquyen'])
-            ->select('id', 'hoten', 'email', 'gioitinh', 'ngaysinh', 'trangthai', 'manhomquyen', 'makhoa');
-
-        if ($request->has('search') && $request->search != '') {
-            $query->where(function($q) use ($request) {
-                $q->where('hoten', 'like', '%' . $request->search . '%')
-                  ->orWhere('email', 'like', '%' . $request->search . '%')
-                  ->orWhere('id', 'like', '%' . $request->search . '%');
-            });
-        }
-
+       $query = UserModel::with(['khoa', 'nhomquyen'])
+    ->select('id', 'hoten', 'email', 'gioitinh', 'ngaysinh', 'trangthai', 'manhomquyen', 'makhoa')
+    ->orderByRaw("
+        CASE 
+            WHEN manhomquyen = 1 THEN 1  -- Admin
+            WHEN manhomquyen = 2 THEN 2  -- Giảng viên
+            WHEN manhomquyen = 3 THEN 3  -- Sinh viên
+            ELSE 4
+        END
+    ");
         // Filter by role
         if ($request->has('role') && $request->role != 0) {
             $query->where('manhomquyen', $request->role);
@@ -187,17 +189,60 @@ class UserController extends Controller
     /**
      * API: Import Excel
      */
-    public function importExcel(Request $request)
-    {
-        $request->validate([
-            'fileToUpload' => 'required|mimes:xlsx,xls,csv'
-        ]);
+//     public function importExcel(Request $request)
+// {
+//     $request->validate([
+//         'fileToUpload' => 'required|mimes:xlsx,xls,csv'
+//     ]);
 
-        // Logic xử lý file Excel ở đây (Cần thư viện như PhpSpreadsheet)
-        // Tạm thời trả về thành công
-        return response()->json(['message' => 'Import logic needs implementation with PhpSpreadsheet', 'valid' => false]);
-    }
+//     try {
+//         $rows = Excel::toArray([], $request->file('fileToUpload'));
 
+//         if (empty($rows) || empty($rows[0])) {
+//             return redirect()->back()->with('error', 'File Excel không có dữ liệu');
+//         }
+
+//         $excelRows = $rows[0];
+
+//         foreach ($excelRows as $index => $row) {
+
+//             // Bỏ qua dòng tiêu đề
+//             if ($index == 0) {
+//                 continue;
+//             }
+
+//             // Kiểm tra dòng rỗng
+//             if (empty($row[0]) || empty($row[1]) || empty($row[2])) {
+//                 continue;
+//             }
+
+//             // Kiểm tra user đã tồn tại chưa
+//             $existingUser = UserModel::where('id', $row[0])
+//                 ->orWhere('email', $row[2])
+//                 ->first();
+
+//             if ($existingUser) {
+//                 continue;
+//             }
+
+//            UserModel::create([
+//                 'id' => $row[0],
+//                 'hoten' => $row[1],
+//                 'email' => $row[2],
+//                 'ngaysinh' => $row[3] ?? null,
+//                 'gioitinh' => $row[4] ?? 1,
+//                 'password' => Hash::make($row[5] ?? '123456'),
+//                 'manhomquyen' => $row[6] ?? 1,
+//                 'trangthai' => $row[7] ?? 1,
+//                 'makhoa' => $row[8] ?? null,
+//             ]);
+//         }
+
+//         return redirect()->route('users.index')->with('success', 'Import Excel thành công');
+//     } catch (\Exception $e) {
+//         return redirect()->back()->with('error', 'Lỗi import Excel: ' . $e->getMessage());
+//     }
+// }
     /**
      * Lấy danh sách roles cho dropdown
      */
@@ -206,4 +251,30 @@ class UserController extends Controller
         $roles = NhomQuyenModel::where('trangthai', 1)->get();
         return response()->json($roles);
     }
+
+
+    /**
+     * API: Toggle trạng thái (active/inactive) của user
+     */
+    public function toggleStatus(string $id)
+{
+    try {
+        $user = UserModel::find($id);
+
+        if (!$user) {
+            return back()->with('error', 'Không tìm thấy người dùng.');
+        }
+
+        $user->trangthai = $user->trangthai == 1 ? 0 : 1;
+        $user->save();
+
+        $message = $user->trangthai == 1
+            ? 'Mở khóa tài khoản thành công.'
+            : 'Khóa tài khoản thành công.';
+
+        return back()->with('success', $message);
+    } catch (\Exception $e) {
+        return back()->with('error', 'Lỗi cập nhật trạng thái: ' . $e->getMessage());
+    }
+}
 }
