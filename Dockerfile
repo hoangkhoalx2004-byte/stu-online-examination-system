@@ -1,17 +1,19 @@
-# GIAI ĐOẠN 1: Build Frontend (React/Vite)
+# GIAI ĐOẠN 1: Build Frontend
 FROM node:20-alpine AS frontend-builder
+
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm install
+
 COPY . .
 RUN npm run build
 
-# GIAI ĐOẠN 2: Chạy Backend (Nâng cấp lên PHP 8.4 để khớp thư viện)
+
+# GIAI ĐOẠN 2: Laravel Backend
 FROM php:8.4-fpm-alpine
 
-# Cài đặt các thư viện hệ thống cần thiết cho Laravel & PhpSpreadsheet
 RUN apk add --no-cache \
-    nginx \
     curl \
     libpng-dev \
     libjpeg-turbo-dev \
@@ -23,27 +25,32 @@ RUN apk add --no-cache \
     unzip \
     icu-dev
 
-# Cấu hình và cài đặt PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo_mysql mbstring gd bcmath zip intl exif
+    && docker-php-ext-install \
+        pdo_mysql \
+        mbstring \
+        gd \
+        bcmath \
+        zip \
+        intl \
+        exif
 
-# Cài đặt Composer
+# Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
+
 COPY . .
 
-# Copy kết quả build từ Giai đoạn 1 sang
+# Frontend build
 COPY --from=frontend-builder /app/public/build ./public/build
 
-# Cài đặt dependencies Laravel (Dùng --ignore-platform-reqs nếu cần thiết, nhưng bản 8.3 này đã chuẩn rồi)
+# Laravel dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Cấp quyền cho các thư mục Laravel
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+# Permissions
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
 
-# Cấu hình Nginx
-COPY ./docker/nginx.conf /etc/nginx/http.d/default.conf
-
-# Lệnh khởi động
-CMD nginx && php-fpm
+# Railway web server
+CMD ["sh", "-c", "php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"]
