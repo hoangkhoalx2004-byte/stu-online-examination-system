@@ -6,8 +6,8 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# GIAI ĐOẠN 2: Chạy Backend (Nâng cấp lên PHP 8.3 để khớp thư viện)
-FROM php:8.3-fpm-alpine
+# GIAI ĐOẠN 2: Chạy Backend (Nâng cấp lên PHP 8.4 để khớp thư viện)
+FROM php:8.4-fpm-alpine
 
 # Cài đặt các thư viện hệ thống cần thiết cho Laravel & PhpSpreadsheet
 RUN apk add --no-cache \
